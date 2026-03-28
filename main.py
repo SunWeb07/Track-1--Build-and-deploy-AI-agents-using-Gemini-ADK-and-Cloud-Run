@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from google import genai
 from google.oauth2 import service_account
 import google.auth
+import requests
 import json
 import os
 
@@ -45,18 +45,46 @@ class Request(BaseModel):
 def root():
     return FileResponse("index.html")
 
+def fetch_external_data(name: str) -> dict | None:
+    """Fetch age prediction from agify.io as an external tool."""
+    try:
+        resp = requests.get(
+            "https://api.agify.io/",
+            params={"name": name.split()[0]},
+            timeout=5
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        return None
+
+
 @app.post("/explain")
 def explain(req: Request):
+    # Tool integration: fetch external data
+    external = fetch_external_data(req.text)
+    external_context = ""
+    external_summary = "External API unavailable"
+
+    if external:
+        external_summary = f"Name: {external.get('name')}, Predicted Age: {external.get('age')}, Sample Count: {external.get('count')}"
+        external_context = f"""
+    External data retrieved from agify.io API:
+    {json.dumps(external)}
+    Use this data to enrich your explanation if relevant.
+    """
+
     prompt = f"""
     Explain the following concept in very simple English (like teaching a beginner).
 
     Also provide a simple diagram using arrows or flow format.
 
     Concept: {req.text}
-
+    {external_context}
     Return response strictly in JSON:
     {{
       "simple_explanation": "...",
+      "external_data_used": "...",
       "diagram": "..."
     }}
     """
@@ -70,6 +98,12 @@ def explain(req: Request):
         text = response.text.strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        return json.loads(text)
-    except:
-        return {"result": response.text}
+        result = json.loads(text)
+        result.setdefault("external_data_used", external_summary)
+        return result
+    except Exception:
+        return {
+            "simple_explanation": response.text,
+            "external_data_used": external_summary,
+            "diagram": ""
+        }
