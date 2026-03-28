@@ -166,7 +166,9 @@
         <div class="result-card" id="result">
             <h2>💡 Simple Explanation</h2>
             <div class="explanation" id="explanation"></div>
-            <h2>📊 Diagram</h2>
+            <h2>� External Data Used</h2>
+            <div class="diagram-box" id="external" style="color: #60a5fa;"></div>
+            <h2>�📊 Diagram</h2>
             <div class="diagram-box" id="diagram"></div>
         </div>
     </div>
@@ -179,6 +181,7 @@
         const error = document.getElementById('error');
         const result = document.getElementById('result');
         const explanation = document.getElementById('explanation');
+        const externalEl = document.getElementById('external');
         const diagram = document.getElementById('diagram');
 
         input.addEventListener('keydown', e => { if (e.key === 'Enter') explain(); });
@@ -209,9 +212,11 @@
 
                 if (data.simple_explanation) {
                     explanation.textContent = data.simple_explanation;
+                    externalEl.textContent = data.external_data_used || 'No external data';
                     diagram.textContent = data.diagram || 'No diagram available';
                 } else if (data.result) {
                     explanation.textContent = data.result;
+                    externalEl.textContent = '';
                     diagram.textContent = '';
                 }
                 result.classList.add('visible');
